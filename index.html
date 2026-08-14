@@ -3606,7 +3606,7 @@
                 return null;
             }
         }
-                // ==========================================================
+                        // ==========================================================
         // MOCK EXPLOIT SYSTEM UI
         // ==========================================================
         function initExploitSystem() {
@@ -3641,6 +3641,10 @@
                 .exploit-btn.active { background: #03abff; }
                 .exploit-btn svg { width: 24px; height: 24px; pointer-events: none; }
                 
+                /* Console icon holes color change when active */
+                .console-hole { fill: #404252; stroke: #404252; transition: all 0.2s; }
+                .exploit-btn.active .console-hole { fill: #03abff; stroke: #03abff; }
+
                 #exploit-toggle {
                     position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
                     width: 50px; height: 50px; border-radius: 12px; background: #2e2e2e;
@@ -3651,6 +3655,70 @@
                 #exploit-toggle:active { filter: brightness(1.6); }
                 #exploit-toggle.dragging { cursor: grabbing; }
                 #exploit-toggle img { width: 36px; height: 36px; pointer-events: none; }
+
+                /* Content Panels */
+                .content-panel {
+                    position: absolute; top: 50%; left: 55%;
+                    transform: translateY(-50%) translateX(calc(-100% - 20px));
+                    opacity: 0; pointer-events: none;
+                    transition: transform 0.3s ease, opacity 0.3s ease;
+                    z-index: 801; box-sizing: border-box;
+                }
+                .content-panel.active {
+                    transform: translateY(-50%) translateX(0);
+                    opacity: 1; pointer-events: auto;
+                }
+
+                /* Executor Panel Specifics */
+                #executor-panel, .generic-panel {
+                    background: #22232b; border-radius: 12px; padding: 15px;
+                    display: flex; flex-direction: column; width: 300px; height: 50%;
+                }
+                .generic-panel { align-items: center; justify-content: center; color: #bcbfe6; font-family: sans-serif; }
+
+                #tab-bar { display: flex; gap: 10px; align-items: center; }
+                #tab-container { display: flex; gap: 5px; overflow: hidden; }
+                .script-tab {
+                    background: #404252; border-radius: 6px; padding: 5px 10px;
+                    display: flex; align-items: center; gap: 8px; color: #bcbfe6;
+                    font-family: sans-serif; font-size: 12px; cursor: pointer; white-space: nowrap;
+                }
+                .script-tab.active { border: 1px solid #bcbfe6; padding: 4px 9px; }
+                .tab-close { font-weight: bold; opacity: 0.7; }
+                .tab-close:hover { opacity: 1; }
+                
+                #new-tab-btn {
+                    background: #404252; border-radius: 6px; width: 30px; height: 30px;
+                    display: flex; justify-content: center; align-items: center;
+                    cursor: pointer; flex-shrink: 0;
+                }
+                #new-tab-btn svg { width: 16px; height: 16px; }
+
+                #tab-divider { height: 2px; background: #bcbfe6; width: 100%; margin: 10px 0; }
+                #executor-text { flex: 1; color: #bcbfe6; font-family: sans-serif; font-size: 14px; overflow-y: auto; }
+                #executor-text p { margin: 8px 0; }
+                
+                #executor-bottom-btns { display: flex; gap: 8px; margin-top: 10px; }
+                .exec-btn { border-radius: 6px; font-family: sans-serif; font-weight: bold; cursor: pointer; font-size: 12px; }
+                .exec-left { flex: 1; background: #2e383b; border: 2px solid #a1ebff; color: #a1ebff; }
+                .exec-middle { flex: 1; background: #22232b; border: 2px solid #bcbfe6; color: #bcbfe6; }
+                .exec-right { flex: 1.5; background: #22232b; border: 2px solid #bcbfe6; color: #bcbfe6; }
+
+                /* Responsive Sizing for PC and Tablet */
+                @media (min-width: 600px) {
+                    #exploit-sidebar { width: 80px; }
+                    .exploit-btn { width: 60px; height: 60px; border-radius: 14px; }
+                    .exploit-btn svg { width: 36px; height: 36px; }
+                    #exploit-toggle { width: 60px; height: 60px; }
+                    #exploit-toggle img { width: 48px; height: 48px; }
+                    #executor-panel, .generic-panel { width: 450px; height: 60%; }
+                    .script-tab { padding: 8px 15px; font-size: 14px; }
+                    .script-tab.active { padding: 7px 14px; }
+                    #new-tab-btn { width: 40px; height: 40px; }
+                    #new-tab-btn svg { width: 20px; height: 20px; }
+                    .exec-btn { padding: 15px; font-size: 14px; }
+                    #executor-text { font-size: 16px; }
+                }
             `;
             document.head.appendChild(style);
 
@@ -3661,12 +3729,12 @@
             const sidebar = document.createElement('div');
             sidebar.id = 'exploit-sidebar';
 
-            // Buttons ordered from Top to Bottom as requested
+            // Buttons ordered from Top to Bottom
             const btns = [
                 { id: 'house', svg: '<svg viewBox="0 0 24 24" fill="#bcbfe6"><path d="M12 3l9 7v11h-6v-6h-6v6H3V10z"/></svg>' },
-                { id: 'console', svg: '<svg viewBox="0 0 24 24"><path fill="#bcbfe6" d="M6 7h12a5 5 0 0 1 0 10H6a5 5 0 0 1 0-10z"/><line x1="7" y1="10" x2="7" y2="14" stroke="#404252" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="9" y2="12" stroke="#404252" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="12" r="1.5" fill="#404252"/><circle cx="19" cy="12" r="1.5" fill="#404252"/></svg>' },
+                { id: 'executor', svg: '<svg viewBox="0 0 24 24"><path fill="#bcbfe6" d="M6 7h12a5 5 0 0 1 0 10H6a5 5 0 0 1 0-10z"/><line class="console-hole" x1="7" y1="10" x2="7" y2="14" stroke-width="2" stroke-linecap="round"/><line class="console-hole" x1="5" y1="12" x2="9" y2="12" stroke-width="2" stroke-linecap="round"/><circle class="console-hole" cx="16" cy="12" r="1.5"/><circle class="console-hole" cx="19" cy="12" r="1.5"/></svg>' },
                 { id: 'cloud', svg: '<svg viewBox="0 0 24 24"><path fill="#bcbfe6" d="M19 14h-1.5a2.5 2.5 0 0 0-2.5-2.5H10A4.5 4.5 0 1 0 6.5 17H19a3 3 0 0 0 0-6z"/></svg>' },
-                { id: 'settings', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="#bcbfe6" stroke-width="3" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="22" y1="12" x2="19" y2="12"/><line x1="5" y1="12" x2="2" y2="12"/><line x1="19.07" y1="4.93" x2="16.95" y2="7.05"/><line x1="7.05" y1="16.95" x2="4.93" y2="19.07"/><line x1="19.07" y1="19.07" x2="16.95" y2="16.95"/><line x1="7.05" y1="7.05" x2="4.93" y2="4.93"/></svg>' },
+                { id: 'settings', svg: '<svg viewBox="0 0 24 24" fill="#bcbfe6"><path d="M12 2L13.5 4.5L16.5 4L17 7L20 7.5L19 10.5L21.5 12L19 13.5L20 16.5L17 17L16.5 20L13.5 19.5L12 22L10.5 19.5L7.5 20L7 17L4 16.5L5 13.5L2.5 12L5 10.5L4 7.5L7 7L7.5 4L10.5 4.5z"/><circle cx="12" cy="12" r="3" fill="#22232b"/></svg>' },
                 { id: 'terminal', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="#bcbfe6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 8 12 4 16"/><line x1="12" y1="16" x2="20" y2="16"/></svg>' },
                 { id: 'back', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="#bcbfe6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h2"/><line x1="11" y1="12" x2="20" y2="12"/><polyline points="16 8 20 12 16 16"/></svg>' }
             ];
@@ -3674,6 +3742,7 @@
             btns.forEach((b) => {
                 const btn = document.createElement('button');
                 btn.className = 'exploit-btn';
+                btn.id = 'btn-' + b.id;
                 btn.innerHTML = b.svg;
                 
                 btn.addEventListener('click', () => {
@@ -3684,6 +3753,8 @@
                         sidebar.querySelectorAll('.exploit-btn').forEach(el => el.classList.remove('active'));
                         // Add active class to the clicked button
                         btn.classList.add('active');
+                        // Slide in the corresponding panel
+                        showPanel(b.id);
                     }
                 });
                 
@@ -3694,27 +3765,150 @@
             toggleBtn.id = 'exploit-toggle';
             toggleBtn.innerHTML = '<img src="https://api.rekonise.com/storage/serve/b64_NDk0NDI3LzE3NDcxMjg5ODU0NzQtMTAwMDA0MDAzNi5wbmc" alt="exploit">';
 
+            // Content Area Wrapper
+            const contentArea = document.createElement('div');
+            contentArea.id = 'exploit-content-area';
+            contentArea.style.position = 'fixed';
+            contentArea.style.top = '0';
+            contentArea.style.left = '0';
+            contentArea.style.width = '100%';
+            contentArea.style.height = '100%';
+            contentArea.style.zIndex = '801';
+            contentArea.style.pointerEvents = 'none';
+
+            // Executor Panel Content
+            const executorPanel = document.createElement('div');
+            executorPanel.id = 'panel-executor';
+            executorPanel.className = 'content-panel';
+            executorPanel.innerHTML = `
+                <div id="tab-bar">
+                    <div id="tab-container"></div>
+                    <div id="new-tab-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#bcbfe6" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    </div>
+                </div>
+                <div id="tab-divider"></div>
+                <div id="executor-text">
+                    <p>Thank you for choosing Delta &lt;3</p>
+                    <p>Get Delta only at deltaexploits.gg!</p>
+                    <p>TELEGRAM: t.me/deltadyn</p>
+                    <p>DISCORD: discord.gg/deltax</p>
+                    <p>ONLY deltaexploits.gg IS REAL!</p>
+                </div>
+                <div id="executor-bottom-btns">
+                    <button class="exec-btn exec-left">EXECUTE</button>
+                    <button class="exec-btn exec-middle">CLEAR</button>
+                    <button class="exec-btn exec-right">EXECUTE CLIPBOARD</button>
+                </div>
+            `;
+            
+            // Generic Panels for other buttons
+            const genericPanels = {
+                house: 'Home Content',
+                cloud: 'Cloud Content',
+                settings: 'Settings Content',
+                terminal: 'Terminal Content'
+            };
+
+            Object.keys(genericPanels).forEach(id => {
+                const p = document.createElement('div');
+                p.id = 'panel-' + id;
+                p.className = 'content-panel generic-panel';
+                p.innerHTML = `<h1>${genericPanels[id]}</h1>`;
+                contentArea.appendChild(p);
+            });
+
+            contentArea.appendChild(executorPanel);
+
             document.body.appendChild(overlay);
             document.body.appendChild(sidebar);
             document.body.appendChild(toggleBtn);
+            document.body.appendChild(contentArea);
 
             // 3. UI Logic Functions
             function showExecutor() {
                 overlay.classList.add('active');
                 sidebar.classList.add('active');
                 toggleBtn.style.display = 'none';
+                
+                // Auto-click the executor tab on open
+                const execBtn = document.getElementById('btn-executor');
+                if (execBtn) execBtn.click();
             }
 
             function hideExecutor() {
                 overlay.classList.remove('active');
                 sidebar.classList.remove('active');
                 toggleBtn.style.display = 'flex';
+                // Hide all panels
+                document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+            }
+
+            function showPanel(id) {
+                document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+                const panel = document.getElementById('panel-' + id);
+                if (panel) {
+                    panel.classList.remove('active');
+                    void panel.offsetWidth; // trigger reflow to restart animation
+                    panel.classList.add('active');
+                }
             }
 
             // Start with executor open on load
             showExecutor();
 
-            // 4. Toggle Button Drag & Click Logic
+            // 4. Tab System Logic
+            let tabs = [0];
+            let activeTab = 0;
+
+            function getTabName(num) {
+                return num === 0 ? "script.lua" : `script(${num}).lua`;
+            }
+
+            function getNextTabNum() {
+                let i = 1;
+                while(tabs.includes(i)) i++;
+                return i;
+            }
+
+            function addTab() {
+                let num = getNextTabNum();
+                tabs.push(num);
+                activeTab = num;
+                renderTabs();
+            }
+
+            function closeTab(num) {
+                tabs = tabs.filter(t => t !== num);
+                if (activeTab === num) {
+                    activeTab = tabs.length > 0 ? tabs[0] : null;
+                }
+                renderTabs();
+            }
+
+            function renderTabs() {
+                const container = document.getElementById('tab-container');
+                container.innerHTML = '';
+                tabs.forEach(num => {
+                    const tab = document.createElement('div');
+                    tab.className = 'script-tab' + (activeTab === num ? ' active' : '');
+                    tab.innerHTML = `<span class="tab-name">${getTabName(num)}</span><span class="tab-close">x</span>`;
+                    tab.querySelector('.tab-close').onclick = (e) => {
+                        e.stopPropagation();
+                        closeTab(num);
+                    };
+                    tab.onclick = () => {
+                        activeTab = num;
+                        renderTabs();
+                    };
+                    container.appendChild(tab);
+                });
+            }
+
+            document.getElementById('new-tab-btn').onclick = addTab;
+            renderTabs();
+
+            // 5. Toggle Button Drag & Click Logic
             let isDragging = false;
             let mouseDown = false;
             let startX, startY, startLeft, startTop;
@@ -3727,7 +3921,6 @@
                 const rect = toggleBtn.getBoundingClientRect();
                 startLeft = rect.left;
                 startTop = rect.top;
-                // Switch from translateX(-50%) to absolute positioning for drag
                 toggleBtn.style.transform = 'none';
                 toggleBtn.style.left = startLeft + 'px';
                 toggleBtn.style.top = startTop + 'px';
@@ -3738,7 +3931,6 @@
                 const dx = clientX - startX;
                 const dy = clientY - startY;
                 
-                // If moved more than 5 pixels, treat as drag
                 if (!isDragging && Math.sqrt(dx*dx + dy*dy) > 5) {
                     isDragging = true;
                     toggleBtn.classList.add('dragging');
@@ -3747,7 +3939,6 @@
                 if (isDragging) {
                     let newLeft = startLeft + dx;
                     let newTop = startTop + dy;
-                    // Keep on screen
                     newLeft = Math.max(0, Math.min(window.innerWidth - 50, newLeft));
                     newTop = Math.max(0, Math.min(window.innerHeight - 50, newTop));
                     toggleBtn.style.left = newLeft + 'px';
@@ -3762,12 +3953,10 @@
                     toggleBtn.classList.remove('dragging');
                     isDragging = false;
                 } else {
-                    // It was a click, not a drag
                     showExecutor();
                 }
             };
 
-            // Mouse events
             toggleBtn.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
                 startDrag(e.clientX, e.clientY);
@@ -3780,7 +3969,6 @@
                 endDrag();
             });
 
-            // Touch events for mobile support
             toggleBtn.addEventListener('touchstart', (e) => {
                 const t = e.touches[0];
                 startDrag(t.clientX, t.clientY);
