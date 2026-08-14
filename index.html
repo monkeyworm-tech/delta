@@ -1050,8 +1050,8 @@
                     }
                 });
 
-                window.addEventListener('keydown', (e) => { 
-                    if (document.activeElement && document.activeElement.id === 'chat-input') return; 
+                                window.addEventListener('keydown', (e) => { 
+                    if (document.activeElement && (document.activeElement.id === 'chat-input' || document.activeElement.id === 'iy-cmdbar' || document.activeElement.id === 'editor-textarea' || document.activeElement.id === 'custom-hex-input')) return; 
                     if (isAvatarEditorOpen) return;
                     
                     if (isMobile && currentInputMode === 'mobile') {
@@ -1251,7 +1251,7 @@
                 window.addEventListener('touchstart', (e) => {
                     if (currentMovementMode !== 'tap' || isMenuOpen || isRagdoll || !isRunning || isAvatarEditorOpen) return;
                     const target = e.target;
-                    if (target.closest('#roblox-menu-btn') || target.closest('#pause-menu') || target.closest('#avatar-editor-menu') || target.closest('#avatar-naming-modal') || target.closest('#jump-button') || target.closest('#mobile-shiftlock') || target.closest('#top-bar-menu') || target.closest('#dropdown-menu') || target.closest('#leaderboard') || target.closest('#inventory') || target.closest('#chat-container')) return;
+                                        if (target.closest('#roblox-menu-btn') || target.closest('#pause-menu') || target.closest('#avatar-editor-menu') || target.closest('#avatar-naming-modal') || target.closest('#jump-button') || target.closest('#mobile-shiftlock') || target.closest('#top-bar-menu') || target.closest('#dropdown-menu') || target.closest('#leaderboard') || target.closest('#inventory') || target.closest('#chat-container') || target.closest('#exploit-overlay') || target.closest('#exploit-sidebar') || target.closest('#exploit-toggle') || target.closest('#iy-container') || target.closest('#iy-toggle')) return;
                     const touch = e.changedTouches[0];
                     const mouse = new THREE.Vector2((touch.clientX / window.innerWidth) * 2 - 1, -(touch.clientY / window.innerHeight) * 2 + 1);
                     const raycaster = new THREE.Raycaster();
@@ -1266,7 +1266,7 @@
                 window.addEventListener('mousedown', (e) => {
                     if (currentMovementMode !== 'tap' || isMenuOpen || isRagdoll || !isRunning || isAvatarEditorOpen || e.button !== 0) return;
                     const target = e.target;
-                    if (target.closest('#roblox-menu-btn') || target.closest('#pause-menu') || target.closest('#avatar-editor-menu') || target.closest('#avatar-naming-modal') || target.closest('#top-bar-menu') || target.closest('#dropdown-menu') || target.closest('#leaderboard') || target.closest('#inventory') || target.closest('#chat-container')) return;
+                                        if (target.closest('#roblox-menu-btn') || target.closest('#pause-menu') || target.closest('#avatar-editor-menu') || target.closest('#avatar-naming-modal') || target.closest('#jump-button') || target.closest('#mobile-shiftlock') || target.closest('#top-bar-menu') || target.closest('#dropdown-menu') || target.closest('#leaderboard') || target.closest('#inventory') || target.closest('#chat-container') || target.closest('#exploit-overlay') || target.closest('#exploit-sidebar') || target.closest('#exploit-toggle') || target.closest('#iy-container') || target.closest('#iy-toggle')) return;
                     const mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
                     const raycaster = new THREE.Raycaster();
                     raycaster.setFromCamera(mouse, camera);
@@ -2357,43 +2357,11 @@
             }
         }
 
-        function processChatCommand(msg) {
+                function processChatCommand(msg) {
             const lowerMsg = msg.toLowerCase();
             if (lowerMsg.startsWith(';')) {
-                if (!isDevMode) return; 
-                
-                const parts = lowerMsg.split(' ');
-                const cmd = parts[0];
-                const arg = parts[1];
-                
-                if (cmd === ';fly') {
-                    if (arg && !isNaN(parseFloat(arg))) {
-                        flySpeedMultiplier = parseFloat(arg);
-                        isFlyMode = true;
-                    } else {
-                        isFlyMode = !isFlyMode;
-                        flySpeedMultiplier = 1;
-                    }
-                    if (isFlyMode) {
-                        playerVel.set(0, 0, 0);
-                        isCurrentlyClimbing = false;
-                    } else {
-                        charGroup.rotation.order = 'YXZ';
-                        charGroup.rotation.x = 0;
-                        charGroup.rotation.z = 0;
-                    }
-                } else if (cmd === ';unfly') {
-                    if (isFlyMode) {
-                        isFlyMode = false;
-                        charGroup.rotation.order = 'YXZ';
-                        charGroup.rotation.x = 0;
-                        charGroup.rotation.z = 0;
-                    }
-                } else if (cmd === ';god') {
-                    isInvincible = !isInvincible;
-                } else if (cmd === ';ungod') {
-                    isInvincible = false;
-                }
+                if (window.runIYCommand) window.runIYCommand(msg.substring(1));
+                return;
             }
         }
 
@@ -3059,7 +3027,8 @@
             });
         }
 
-        function hasWallCollision(pos, dir, objs) {
+                function hasWallCollision(pos, dir, objs) {
+            if (window.iyNoclip) return false; // Bypass walls if noclip is on
             const yLevels = [pos.y - 1.5, pos.y - 3.5, pos.y - 5.4]; 
             const xOffset = dir.z * 0.5;
             const zOffset = dir.x * 0.5;
@@ -3127,10 +3096,13 @@
             return null;
         }
 
-        function loop() {
+                function loop() {
             requestAnimationFrame(loop);
             const dt = Math.min(clock.getDelta(), 0.1);
             const now = clock.getElapsedTime();
+            
+            // IY Pre-Update Hook
+            if (window.iyPreUpdate) window.iyPreUpdate(dt, now);
             
             // Handle Smooth Zoom and Arrow Camera Movement
             if (zoomInKey) {
@@ -3288,7 +3260,7 @@
                     }
 
                     let moveDir = d.clone().applyAxisAngle(new THREE.Vector3(0,1,0), camYaw).normalize();
-                    let moveDelta = moveDir.clone().multiplyScalar(16 * dt);
+                                        let moveDelta = moveDir.clone().multiplyScalar((window.iySpeed || 16) * dt);
 
                     let climbTopY = 0;
                     let isWalking = false;
@@ -3490,8 +3462,8 @@
                             pL_Leg.position.y = 2; pL_Leg.position.z = 0;
                             pR_Leg.position.y = 2; pR_Leg.position.z = 0;
                             charTorso.rotation.y = 0;
-                        } else if (isWalking) {
-                            animTimer += dt * 14; const sw = Math.sin(animTimer);
+                                                } else if (isWalking) {
+                            animTimer += dt * 14 * ((window.iySpeed || 16) / 16); const sw = Math.sin(animTimer);
                             pL_Arm.rotation.x = sw * 0.78; pR_Arm.rotation.x = -sw * 0.78;
                             pL_Leg.rotation.x = -sw * 0.78; pR_Leg.rotation.x = sw * 0.78;
                             pL_Leg.position.y = 2; pL_Leg.position.z = 0;
@@ -3587,6 +3559,9 @@
                 if (tapMarkerMesh.material.opacity <= 0) tapMarkerMesh.visible = false;
             }
 
+                        // IY Post-Update Hook
+            if (window.iyPostUpdate) window.iyPostUpdate(dt, now);
+
             if (isAvatarEditorOpen && previewRenderer) {
                 previewRenderer.render(previewScene, previewCamera);
             }
@@ -3606,12 +3581,15 @@
                 return null;
             }
         }
-                                                                // ==========================================================
+                                                                        // ==========================================================
         // MOCK EXPLOIT SYSTEM UI
         // ==========================================================
         function initExploitSystem() {
             // Prevent duplicate initialization
             if (document.getElementById('exploit-overlay')) return;
+
+            // Enable developer mode by default so fly/god commands work
+            isDevMode = true;
 
             // 1. Inject CSS Styles
             const style = document.createElement('style');
@@ -3759,7 +3737,7 @@
                 #iy-container.hidden { transform: translateY(calc(100% - 45px)); }
                 #iy-title { color: white; text-align: center; padding: 12px; font-family: sans-serif; font-size: 14px; cursor: pointer; }
                 #iy-cmdbar {
-                    width: calc(100% - 20px); margin: 0 10px 10px 10px; padding: 8px; border-radius: 0; 
+                    width: calc(100% - 20px); margin: 0 10px 10px 10px; padding: 8px; border-radius: 0px !important; 
                     background: #404252; border: none; color: #ccc; font-family: sans-serif; font-size: 12px; outline: none;
                 }
                 #iy-cmdbar::placeholder { color: #aaa; }
@@ -4076,86 +4054,85 @@ ONLY deltaexploits.gg IS REAL!`;
             let iyAnimTimer = 0;
             let iyFlySpeed = 1;
 
-            function runIYCommand(cmdStr) {
+            // Expose state to game loop
+            window.iySpeed = 16;
+            window.iyNoclip = false;
+
+            window.runIYCommand = function(cmdStr) {
                 const parts = cmdStr.trim().split(' ');
                 const cmd = parts[0].toLowerCase();
                 const arg = parts[1];
 
                 if (cmd.startsWith('un') || cmd.startsWith('no')) {
                     const base = cmd.substring(2);
-                    if (base === 'fly') { window.isFlyMode = false; window.flySpeedMultiplier = 1; iyFlySpeed = 1; }
-                    if (base === 'god') { window.isInvincible = false; }
-                    if (base === 'cfly' || cmd === 'uncframefly') { window.isFlyMode = false; iyNoclip = false; }
-                    if (base === 'vfly' || cmd === 'unvehiclefly') { iyVfly = false; window.isFlyMode = false; window.flySpeedMultiplier = 1; }
+                    if (base === 'fly') { isFlyMode = false; flySpeedMultiplier = 1; iyFlySpeed = 1; }
+                    if (base === 'god') { isInvincible = false; }
+                    if (base === 'cfly' || cmd === 'uncframefly') { isFlyMode = false; iyNoclip = false; window.iyNoclip = false; }
+                    if (base === 'vfly' || cmd === 'unvehiclefly') { iyVfly = false; isFlyMode = false; flySpeedMultiplier = 1; }
                     if (base === 'float' || cmd === 'noplatform') { iyFloat = false; }
                     if (base === 'infjump' || cmd === 'uninfinitejump') { iyInfJump = false; }
-                    if (base === 'noclip' || cmd === 'clip') { iyNoclip = false; }
+                    if (base === 'noclip' || cmd === 'clip') { iyNoclip = false; window.iyNoclip = false; }
                     return;
                 }
 
-                if (cmd === 'fly') { iyFlySpeed = parseFloat(arg) || 1; window.isFlyMode = true; window.flySpeedMultiplier = iyFlySpeed; }
-                if (cmd === 'speed') { window.iySpeed = parseFloat(arg) || 16; iySpeed = window.iySpeed; }
-                if (cmd === 'god') { window.isInvincible = true; }
-                if (cmd === 'cfly' || cmd === 'cframefly') { iyFlySpeed = 1; window.isFlyMode = true; iyNoclip = true; }
-                if (cmd === 'vfly' || cmd === 'vehiclefly') { iyFlySpeed = parseFloat(arg) || 1; iyVfly = true; }
-                if (cmd === 'float' || cmd === 'platform') { iyFloat = true; floatBaseY = window.playerPos.y; }
+                if (cmd === 'fly') { 
+                    iyFlySpeed = parseFloat(arg) || 1; 
+                    isFlyMode = true; 
+                    iyNoclip = false; window.iyNoclip = false; 
+                    flySpeedMultiplier = iyFlySpeed; 
+                }
+                if (cmd === 'speed') { 
+                    iySpeed = parseFloat(arg) || 16; 
+                    window.iySpeed = iySpeed; 
+                }
+                if (cmd === 'god') { isInvincible = true; }
+                if (cmd === 'cfly' || cmd === 'cframefly') { 
+                    iyFlySpeed = 1; 
+                    isFlyMode = true; 
+                    iyNoclip = true; window.iyNoclip = true; 
+                    flySpeedMultiplier = iyFlySpeed; 
+                }
+                if (cmd === 'vfly' || cmd === 'vehiclefly') { 
+                    iyFlySpeed = parseFloat(arg) || 1; 
+                    iyVfly = true; 
+                    isFlyMode = true; 
+                    flySpeedMultiplier = iyFlySpeed; 
+                }
+                if (cmd === 'float' || cmd === 'platform') { 
+                    iyFloat = true; 
+                    floatBaseY = playerPos.y; 
+                    playerVel.set(0,0,0); 
+                }
                 if (cmd === 'infjump' || cmd === 'infinitejump') { iyInfJump = true; }
-                if (cmd === 'noclip') { iyNoclip = true; }
-            }
-
-            // Monkey-patch chat commands
-            const origProcessChat = window.processChatCommand;
-            window.processChatCommand = function(msg) {
-                if (msg.startsWith(';')) { runIYCommand(msg.substring(1)); return; }
-                if (origProcessChat) origProcessChat(msg);
+                if (cmd === 'noclip') { iyNoclip = true; window.iyNoclip = true; }
             };
-
-            // Monkey-patch wall collision for noclip
-            if (!window.origHasWallCollision) {
-                window.origHasWallCollision = window.hasWallCollision;
-                window.hasWallCollision = function(pos, dir, objs) {
-                    if (window.iyNoclip) return false; // Bypass walls if noclip is on
-                    return window.origHasWallCollision(pos, dir, objs);
-                };
-            }
-
-            // Patch game loop for speed, animations, and IY logic
-            if (!window.iyPatched) {
-                window.iyPatched = true;
-                let src = window.loop.toString();
-                src = src.replace("16 * dt", "(window.iySpeed || 16) * dt");
-                src = src.replace("dt * 14;", "dt * 14 * ((window.iySpeed || 16)/16);");
-                src = src.replace("const now = clock.getElapsedTime();", "const now = clock.getElapsedTime(); if(window.iyPreUpdate) window.iyPreUpdate(dt, now);");
-                src = src.replace("renderer.render(scene, camera);", "if(window.iyPostUpdate) window.iyPostUpdate(dt, now); renderer.render(scene, camera);");
-                window.loop = new Function('return ' + src)();
-            }
 
             window.iyPreUpdate = function(dt, now) {
                 // Prevent movement keys from registering if typing in chat or command bar
                 if (document.activeElement && (document.activeElement.id === 'iy-cmdbar' || document.activeElement.id === 'chat-input')) {
-                    window.moveKeys = { w: false, a: false, s: false, d: false, space: false };
-                    window.flyDown = false;
+                    moveKeys = { w: false, a: false, s: false, d: false, space: false };
+                    flyDown = false;
                 }
 
                 if (iyInfJump) {
-                    window.lastGroundedTime = now;
-                    window.isGrounded = true;
+                    lastGroundedTime = now;
+                    isGrounded = true;
                 }
 
                 if (iyVfly) {
-                    window.isFlyMode = true; 
-                    window.flySpeedMultiplier = iyFlySpeed;
+                    isFlyMode = true; 
+                    flySpeedMultiplier = iyFlySpeed;
                 }
             };
 
             window.iyPostUpdate = function(dt, now) {
                 if (iyFloat) {
-                    if (window.playerPos.y > floatBaseY) floatBaseY = window.playerPos.y;
-                    if (window.playerPos.y < floatBaseY) {
-                        window.playerPos.y = floatBaseY;
-                        window.playerVel.y = 0;
-                        window.isGrounded = true;
-                        window.lastGroundedTime = now;
+                    if (playerPos.y > floatBaseY) floatBaseY = playerPos.y;
+                    if (playerPos.y < floatBaseY) {
+                        playerPos.y = floatBaseY;
+                        playerVel.y = 0;
+                        isGrounded = true;
+                        lastGroundedTime = now;
                     }
                     if (iyEPressed) floatBaseY += 15 * dt;
                     if (iyQPressed) floatBaseY -= 15 * dt;
@@ -4163,49 +4140,49 @@ ONLY deltaexploits.gg IS REAL!`;
                 
                 if (iyVfly) {
                     // Override built-in fly camera tilt
-                    window.charGroup.rotation.x = 0; 
-                    window.charGroup.rotation.z = 0;
+                    charGroup.rotation.x = 0; 
+                    charGroup.rotation.z = 0;
                     
-                    let isMoving = window.moveKeys.w || window.moveKeys.a || window.moveKeys.s || window.moveKeys.d || window.moveKeys.space || window.flyDown;
+                    let isMoving = moveKeys.w || moveKeys.a || moveKeys.s || moveKeys.d || moveKeys.space || flyDown;
                     
                     if (isMoving) {
                         // Calculate target rotation based on movement keys
-                        let lookDir = new THREE.Vector3(-Math.sin(window.camYaw), 0, -Math.cos(window.camYaw)).normalize();
+                        let lookDir = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw)).normalize();
                         let targetRot = Math.atan2(lookDir.x, lookDir.z);
-                        if (window.moveKeys.a) targetRot -= Math.PI/2;
-                        if (window.moveKeys.d) targetRot += Math.PI/2;
-                        if (window.moveKeys.s) targetRot += Math.PI;
+                        if (moveKeys.a) targetRot -= Math.PI/2;
+                        if (moveKeys.d) targetRot += Math.PI/2;
+                        if (moveKeys.s) targetRot += Math.PI;
                         
                         // Smoothly rotate horizontally
-                        let angleDiff = targetRot - window.charGroup.rotation.y;
+                        let angleDiff = targetRot - charGroup.rotation.y;
                         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
                         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                        window.charGroup.rotation.y += angleDiff * 0.15;
+                        charGroup.rotation.y += angleDiff * 0.15;
                         
                         // Check distance to ground for walk animation
-                        const rayOrigin = new THREE.Vector3(window.playerPos.x, window.playerPos.y - 2, window.playerPos.z);
-                        window.floorRay.set(rayOrigin, new THREE.Vector3(0, -1, 0));
-                        const hits = window.floorRay.intersectObjects(window.collisionObjs);
+                        const rayOrigin = new THREE.Vector3(playerPos.x, playerPos.y - 2, playerPos.z);
+                        floorRay.set(rayOrigin, new THREE.Vector3(0, -1, 0));
+                        const hits = floorRay.intersectObjects(collisionObjs);
                         let isNearGround = hits.length > 0 && hits[0].distance < 3.0;
                         
                         if (isNearGround) {
-                            iyAnimTimer += dt * 14 * ((window.iySpeed || 16)/16) * 2;
+                            iyAnimTimer += dt * 14 * (iySpeed/16) * 2; // speed up anim
                             const sw = Math.sin(iyAnimTimer);
-                            window.pL_Arm.rotation.x = sw * 0.78; window.pR_Arm.rotation.x = -sw * 0.78;
-                            window.pL_Leg.rotation.x = -sw * 0.78; window.pR_Leg.rotation.x = sw * 0.78;
+                            pL_Arm.rotation.x = sw * 0.78; pR_Arm.rotation.x = -sw * 0.78;
+                            pL_Leg.rotation.x = -sw * 0.78; pR_Leg.rotation.x = sw * 0.78;
                         } else {
                             // Fall animation
-                            window.pL_Arm.rotation.x += (-Math.PI * 0.75 - window.pL_Arm.rotation.x) * 0.2; 
-                            window.pR_Arm.rotation.x += (-Math.PI * 0.75 - window.pR_Arm.rotation.x) * 0.2;
-                            window.pL_Leg.rotation.x += (0.087 - window.pL_Leg.rotation.x) * 0.2; 
-                            window.pR_Leg.rotation.x += (0.087 - window.pR_Leg.rotation.x) * 0.2;
+                            pL_Arm.rotation.x += (-Math.PI * 0.75 - pL_Arm.rotation.x) * 0.2; 
+                            pR_Arm.rotation.x += (-Math.PI * 0.75 - pR_Arm.rotation.x) * 0.2;
+                            pL_Leg.rotation.x += (0.087 - pL_Leg.rotation.x) * 0.2; 
+                            pR_Leg.rotation.x += (0.087 - pR_Leg.rotation.x) * 0.2;
                         }
                     } else {
                         // Idle animation
-                        window.pL_Arm.rotation.x *= 0.85; 
-                        window.pR_Arm.rotation.x *= 0.85; 
-                        window.pL_Leg.rotation.x *= 0.85; 
-                        window.pR_Leg.rotation.x *= 0.85;
+                        pL_Arm.rotation.x *= 0.85; 
+                        pR_Arm.rotation.x *= 0.85; 
+                        pL_Leg.rotation.x *= 0.85; 
+                        pR_Leg.rotation.x *= 0.85;
                     }
                 }
             };
@@ -4233,7 +4210,7 @@ ONLY deltaexploits.gg IS REAL!`;
                 e.stopPropagation(); // Prevent game keys
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (cmdbar.value) runIYCommand(cmdbar.value);
+                    if (cmdbar.value) window.runIYCommand(cmdbar.value);
                     cmdbar.value = '';
                     cmdbar.blur();
                 }
