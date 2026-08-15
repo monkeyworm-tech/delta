@@ -3581,7 +3581,7 @@
                 return null;
             }
         }
-                                                                        // ==========================================================
+                                                                                        // ==========================================================
         // MOCK EXPLOIT SYSTEM UI
         // ==========================================================
         function initExploitSystem() {
@@ -3910,7 +3910,6 @@ ONLY deltaexploits.gg IS REAL!`;
                 overlay.classList.add('active');
                 sidebar.classList.add('active');
                 toggleBtn.style.display = 'none';
-                // No tab selected by default
             }
 
             function hideExecutor() {
@@ -4032,6 +4031,17 @@ ONLY deltaexploits.gg IS REAL!`;
                         <div>float</div>
                         <div>infjump</div>
                         <div>noclip</div>
+                        <div>tweenspeed [val]</div>
+                        <div>tweenoffset [x y z]</div>
+                        <div>setwaypoint [name]</div>
+                        <div>waypointpos [name] [x y z]</div>
+                        <div>waypoints</div>
+                        <div>showwaypoints</div>
+                        <div>hidewaypoints</div>
+                        <div>tweenwaypoint [name]</div>
+                        <div>waypoint [name]</div>
+                        <div>walktowaypoint [name]</div>
+                        <div>pathfindwalktowaypoint [name]</div>
                     </div>
                 </div>
             `;
@@ -4054,9 +4064,58 @@ ONLY deltaexploits.gg IS REAL!`;
             let iyAnimTimer = 0;
             let iyFlySpeed = 1;
 
+            // Tweening State Variables
+            let isTweening = false;
+            let tweenStartPos = new THREE.Vector3();
+            let tweenEndPos = new THREE.Vector3();
+            let tweenStartTime = 0;
+            let tweenSpeed = 1.0;
+
+            // Waypoint State Variables
+            let iyWaypoints = {};
+            let iyWaypointMeshes = [];
+            let iyShowWaypoints = false;
+            let iyWalkTarget = null;
+            let iyIsPathfinding = false;
+
             // Expose state to game loop
             window.iySpeed = 16;
             window.iyNoclip = false;
+
+            function iyPrint(text) {
+                const cmdsDiv = document.getElementById('iy-cmds');
+                const p = document.createElement('div');
+                p.innerText = text;
+                p.style.color = '#fff';
+                p.style.borderTop = '1px solid #444';
+                p.style.marginTop = '5px';
+                p.style.paddingTop = '5px';
+                cmdsDiv.appendChild(p);
+                cmdsDiv.scrollTop = cmdsDiv.scrollHeight;
+            }
+
+            function updateWaypointMeshes() {
+                // Remove old meshes
+                iyWaypointMeshes.forEach(m => scene.remove(m));
+                iyWaypointMeshes = [];
+                
+                if (iyShowWaypoints) {
+                    const geo = new THREE.BoxGeometry(4, 4, 4);
+                    // depthTest: false allows it to be seen through walls
+                    const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5, depthTest: false });
+                    
+                    Object.keys(iyWaypoints).forEach(name => {
+                        const wp = iyWaypoints[name];
+                        const mesh = new THREE.Mesh(geo, mat);
+                        mesh.position.set(wp.x, wp.y, wp.z);
+                        mesh.renderOrder = 999; // Render on top
+                        mesh.castShadow = false;
+                        mesh.receiveShadow = false;
+                        scene.add(mesh);
+                        iyWaypointMeshes.push(mesh);
+                    });
+                }
+            }
 
             window.runIYCommand = function(cmdStr) {
                 const parts = cmdStr.trim().split(' ');
@@ -4065,10 +4124,22 @@ ONLY deltaexploits.gg IS REAL!`;
 
                 if (cmd.startsWith('un') || cmd.startsWith('no')) {
                     const base = cmd.substring(2);
-                    if (base === 'fly') { isFlyMode = false; flySpeedMultiplier = 1; iyFlySpeed = 1; }
+                    if (base === 'fly') { 
+                        isFlyMode = false; flySpeedMultiplier = 1; iyFlySpeed = 1; 
+                        charGroup.rotation.order = 'YXZ';
+                        charGroup.rotation.x = 0; charGroup.rotation.z = 0;
+                    }
                     if (base === 'god') { isInvincible = false; }
-                    if (base === 'cfly' || cmd === 'uncframefly') { isFlyMode = false; iyNoclip = false; window.iyNoclip = false; }
-                    if (base === 'vfly' || cmd === 'unvehiclefly') { iyVfly = false; isFlyMode = false; flySpeedMultiplier = 1; }
+                    if (base === 'cfly' || cmd === 'uncframefly') { 
+                        isFlyMode = false; iyNoclip = false; window.iyNoclip = false; 
+                        charGroup.rotation.order = 'YXZ';
+                        charGroup.rotation.x = 0; charGroup.rotation.z = 0;
+                    }
+                    if (base === 'vfly' || cmd === 'unvehiclefly') { 
+                        iyVfly = false; isFlyMode = false; flySpeedMultiplier = 1; 
+                        charGroup.rotation.order = 'YXZ';
+                        charGroup.rotation.x = 0; charGroup.rotation.z = 0;
+                    }
                     if (base === 'float' || cmd === 'noplatform') { iyFloat = false; }
                     if (base === 'infjump' || cmd === 'uninfinitejump') { iyInfJump = false; }
                     if (base === 'noclip' || cmd === 'clip') { iyNoclip = false; window.iyNoclip = false; }
@@ -4105,6 +4176,113 @@ ONLY deltaexploits.gg IS REAL!`;
                 }
                 if (cmd === 'infjump' || cmd === 'infinitejump') { iyInfJump = true; }
                 if (cmd === 'noclip') { iyNoclip = true; window.iyNoclip = true; }
+                
+                // Tweening Commands
+                if (cmd === 'tweenspeed' || cmd === 'tspeed') {
+                    tweenSpeed = parseFloat(arg) || 1.0;
+                    if (tweenSpeed <= 0) tweenSpeed = 0.1; // Prevent division by zero
+                    iyPrint(`Tween speed set to ${tweenSpeed}`);
+                }
+                if (cmd === 'tweenoffset' || cmd === 'toffset') {
+                    const x = parseFloat(parts[1]) || 0;
+                    const y = parseFloat(parts[2]) || 0;
+                    const z = parseFloat(parts[3]) || 0;
+                    tweenStartPos.copy(playerPos);
+                    tweenEndPos.set(playerPos.x + x, playerPos.y + y, playerPos.z + z);
+                    tweenStartTime = clock.getElapsedTime();
+                    isTweening = true;
+                    playerVel.set(0,0,0);
+                }
+
+                // Waypoint Commands
+                if (cmd === 'setwaypoint' || cmd === 'setwp') {
+                    const name = parts[1];
+                    if (name) {
+                        iyWaypoints[name] = playerPos.clone();
+                        iyPrint(`Waypoint '${name}' set at current position.`);
+                        if (iyShowWaypoints) updateWaypointMeshes();
+                    } else {
+                        iyPrint('Usage: setwaypoint [name]');
+                    }
+                }
+                if (cmd === 'waypointpos' || cmd === 'wpp') {
+                    const name = parts[1];
+                    if (name) {
+                        const x = parseFloat(parts[2]) || 0;
+                        const y = parseFloat(parts[3]) || 0;
+                        const z = parseFloat(parts[4]) || 0;
+                        iyWaypoints[name] = new THREE.Vector3(x, y, z);
+                        iyPrint(`Waypoint '${name}' set to ${x}, ${y}, ${z}`);
+                        if (iyShowWaypoints) updateWaypointMeshes();
+                    } else {
+                        iyPrint('Usage: waypointpos [name] [X Y Z]');
+                    }
+                }
+                if (cmd === 'waypoints') {
+                    iyPrint('--- Waypoints ---');
+                    const names = Object.keys(iyWaypoints);
+                    if (names.length === 0) {
+                        iyPrint('No waypoints set.');
+                    } else {
+                        names.forEach(name => {
+                            const wp = iyWaypoints[name];
+                            iyPrint(`${name}: ${wp.x.toFixed(1)}, ${wp.y.toFixed(1)}, ${wp.z.toFixed(1)}`);
+                        });
+                    }
+                }
+                if (cmd === 'showwaypoints' || cmd === 'showwp') {
+                    iyShowWaypoints = true;
+                    updateWaypointMeshes();
+                    iyPrint('Showing waypoint indicators.');
+                }
+                if (cmd === 'hidewaypoints' || cmd === 'hidewp') {
+                    iyShowWaypoints = false;
+                    updateWaypointMeshes();
+                    iyPrint('Hiding waypoint indicators.');
+                }
+                if (cmd === 'tweenwaypoint' || cmd === 'twp') {
+                    const name = parts[1];
+                    if (name && iyWaypoints[name]) {
+                        tweenStartPos.copy(playerPos);
+                        tweenEndPos.copy(iyWaypoints[name]);
+                        tweenStartTime = clock.getElapsedTime();
+                        isTweening = true;
+                        playerVel.set(0,0,0);
+                        iyPrint(`Tweening to '${name}'.`);
+                    } else {
+                        iyPrint(`Waypoint '${name || ''}' not found.`);
+                    }
+                }
+                if (cmd === 'waypoint' || cmd === 'wp') {
+                    const name = parts[1];
+                    if (name && iyWaypoints[name]) {
+                        playerPos.copy(iyWaypoints[name]);
+                        playerVel.set(0,0,0);
+                        iyPrint(`Teleported to '${name}'.`);
+                    } else {
+                        iyPrint(`Waypoint '${name || ''}' not found.`);
+                    }
+                }
+                if (cmd === 'walktowaypoint' || cmd === 'wtwp') {
+                    const name = parts[1];
+                    if (name && iyWaypoints[name]) {
+                        iyWalkTarget = iyWaypoints[name].clone();
+                        iyIsPathfinding = false;
+                        iyPrint(`Walking to '${name}'.`);
+                    } else {
+                        iyPrint(`Waypoint '${name || ''}' not found.`);
+                    }
+                }
+                if (cmd === 'pathfindwalktowaypoint' || cmd === 'pathfindwalktowp') {
+                    const name = parts[1];
+                    if (name && iyWaypoints[name]) {
+                        iyWalkTarget = iyWaypoints[name].clone();
+                        iyIsPathfinding = true;
+                        iyPrint(`Pathfinding to '${name}'.`);
+                    } else {
+                        iyPrint(`Waypoint '${name || ''}' not found.`);
+                    }
+                }
             };
 
             window.iyPreUpdate = function(dt, now) {
@@ -4112,6 +4290,60 @@ ONLY deltaexploits.gg IS REAL!`;
                 if (document.activeElement && (document.activeElement.id === 'iy-cmdbar' || document.activeElement.id === 'chat-input')) {
                     moveKeys = { w: false, a: false, s: false, d: false, space: false };
                     flyDown = false;
+                }
+
+                // Lock movement if tweening
+                if (isTweening) {
+                    moveKeys = { w: false, a: false, s: false, d: false, space: false };
+                    flyDown = false;
+                }
+
+                // Cancel walking if flying or floating
+                if (isFlyMode || iyFloat) {
+                    iyWalkTarget = null;
+                }
+
+                // Handle Walking to Waypoint
+                if (iyWalkTarget) {
+                    const dx = iyWalkTarget.x - playerPos.x;
+                    const dz = iyWalkTarget.z - playerPos.z;
+                    const dist = Math.sqrt(dx*dx + dz*dz);
+                    
+                    if (dist < 1.5) {
+                        iyWalkTarget = null;
+                        moveKeys = { w: false, a: false, s: false, d: false, space: false };
+                    } else {
+                        moveKeys = { w: false, a: false, s: false, d: false, space: false };
+                        
+                        let worldDir = new THREE.Vector3(dx, 0, dz).normalize();
+                        
+                        // Simple obstacle avoidance for pathfinding
+                        if (iyIsPathfinding) {
+                            if (hasWallCollision(playerPos, worldDir, collisionObjs)) {
+                                const leftDir = new THREE.Vector3(-worldDir.z, 0, worldDir.x);
+                                if (!hasWallCollision(playerPos, leftDir, collisionObjs)) {
+                                    worldDir.copy(leftDir);
+                                } else {
+                                    const rightDir = new THREE.Vector3(worldDir.z, 0, -worldDir.x);
+                                    if (!hasWallCollision(playerPos, rightDir, collisionObjs)) {
+                                        worldDir.copy(rightDir);
+                                    } else {
+                                        // Stuck, stop moving
+                                        moveKeys = { w: false, a: false, s: false, d: false, space: false };
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Convert world direction to local movement keys
+                        const localDir = worldDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -camYaw);
+                        
+                        if (localDir.z < -0.3) moveKeys.w = true;
+                        if (localDir.z > 0.3) moveKeys.s = true;
+                        if (localDir.x < -0.3) moveKeys.a = true;
+                        if (localDir.x > 0.3) moveKeys.d = true;
+                    }
                 }
 
                 if (iyInfJump) {
@@ -4126,6 +4358,18 @@ ONLY deltaexploits.gg IS REAL!`;
             };
 
             window.iyPostUpdate = function(dt, now) {
+                // Handle Tweening
+                if (isTweening) {
+                    let t = (now - tweenStartTime) / tweenSpeed;
+                    if (t >= 1.0) {
+                        t = 1.0;
+                        isTweening = false;
+                    }
+                    playerPos.lerpVectors(tweenStartPos, tweenEndPos, t);
+                    playerVel.set(0,0,0);
+                    charGroup.position.set(playerPos.x, playerPos.y - 5.5, playerPos.z);
+                }
+
                 if (iyFloat) {
                     if (playerPos.y > floatBaseY) floatBaseY = playerPos.y;
                     if (playerPos.y < floatBaseY) {
@@ -4210,7 +4454,10 @@ ONLY deltaexploits.gg IS REAL!`;
                 e.stopPropagation(); // Prevent game keys
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (cmdbar.value) window.runIYCommand(cmdbar.value);
+                    if (cmdbar.value) {
+                        iyPrint(`> ${cmdbar.value}`);
+                        window.runIYCommand(cmdbar.value);
+                    }
                     cmdbar.value = '';
                     cmdbar.blur();
                 }
