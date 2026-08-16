@@ -321,6 +321,13 @@
             top: 2px; right: 4px;
             font-size: 10px; color: rgba(255,255,255,0.5);
         }
+        .inv-item {
+            position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px;
+            background: #3a3a3a; color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 8px; cursor: pointer; border-radius: 4px; user-select: none; text-align: center;
+            border: 1px solid #555; pointer-events: auto; line-height: 1.2; padding: 2px; box-sizing: border-box;
+        }
+        .inv-item.equipped { border: 2px solid #00ff00; background: #4a4a4a; }
 
         /* Inventory Desktop (1.5x scale) */
         #inventory.desktop #inv-box {
@@ -864,6 +871,9 @@
         const FIRST_PERSON_DIST = 2.5; 
         let animTimer = 0, isRunning = false, isGrounded = true;
         let isMenuOpen = false;
+        let playerInventory = new Array(10).fill(null);
+        let equippedTool = null;
+        let draggedItemIndex = null;
         let isAvatarEditorOpen = false;
         
         let charGroup, charMaterials = [], partMaterials = {}, collisionObjs = [], ladderObjs = []; 
@@ -989,6 +999,22 @@
                 renderer.outputColorSpace = THREE.SRGBColorSpace;
                 document.body.appendChild(renderer.domElement);
 
+                renderer.domElement.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0 || !isRunning || isMenuOpen || isAvatarEditorOpen) return;
+                    if (equippedTool !== null && playerInventory[equippedTool] && playerInventory[equippedTool].type === 'tptool') {
+                        const mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+                        const raycaster = new THREE.Raycaster();
+                        raycaster.setFromCamera(mouse, camera);
+                        const intersects = raycaster.intersectObjects(collisionObjs);
+                        if (intersects.length > 0) {
+                            const target = intersects[0].point;
+                            playerPos.set(target.x, target.y + 5.5, target.z);
+                            playerVel.set(0, 0, 0);
+                        }
+                        e.preventDefault();
+                    }
+                });
+
                 ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
                 scene.add(ambientLight);
                 sun = new THREE.DirectionalLight(0xffffff, 1.0);
@@ -1018,7 +1044,7 @@
                 buildCameraInterface();
                 createTrailCircles();
                 
-                                setTimeout(() => {
+                setTimeout(() => {
                     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     checkPointerLockNeeds();
                     const loader = document.getElementById('loading-screen');
@@ -1028,7 +1054,6 @@
                     updateMovementModeUI();
                     isRunning = true;
                     
-                    // ---> ADD THIS LINE HERE <---
                     initExploitSystem();
                 }, 2000);
 
@@ -1050,10 +1075,22 @@
                     }
                 });
 
-                                window.addEventListener('keydown', (e) => { 
+                window.addEventListener('keydown', (e) => { 
                     if (document.activeElement && (document.activeElement.id === 'chat-input' || document.activeElement.id === 'iy-cmdbar' || document.activeElement.id === 'editor-textarea' || document.activeElement.id === 'custom-hex-input')) return; 
                     if (isAvatarEditorOpen) return;
                     
+                    if (e.key === 'Backspace' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                        if (equippedTool !== null) {
+                            playerInventory[equippedTool] = null;
+                            equippedTool = null;
+                            if (document.getElementById('inventory').classList.contains('active')) {
+                                renderInventoryItems();
+                            }
+                            e.preventDefault();
+                            return;
+                        }
+                    }
+
                     if (isMobile && currentInputMode === 'mobile') {
                         switchToPCControls();
                         return; 
@@ -1173,7 +1210,7 @@
                 document.addEventListener('touchstart', (e) => {
                     if (isMobile && currentInputMode === 'pc') {
                         const target = e.target;
-                        if (!target.closest('#pause-menu') && !target.closest('#avatar-editor-menu') && !target.closest('#avatar-naming-modal') && !target.closest('#roblox-menu-btn') && !target.closest('.confirmation-panel') && !target.closest('#shiftlock-toggle') && !target.closest('#top-bar-menu') && !target.closest('#dropdown-menu') && !target.closest('#leaderboard') && !target.closest('#inventory') && !target.closest('#chat-container')) {
+                        if (!target.closest('#pause-menu') && !target.closest('#avatar-editor-menu') && !target.closest('#avatar-naming-modal') && !target.closest('#roblox-menu-btn') && !target.closest('.confirmation-panel') && !target.closest('#shiftlock-toggle') && !target.closest('#top-bar-menu') && !target.closest('#dropdown-menu') && !target.closest('#leaderboard') && !target.closest('#inventory') && !target.closest('#chat-container') && !target.closest('#exploit-overlay') && !target.closest('#exploit-sidebar') && !target.closest('#exploit-toggle') && !target.closest('#iy-container') && !target.closest('#iy-toggle')) {
                             switchToMobileControls();
                             return; 
                         }
@@ -1251,7 +1288,7 @@
                 window.addEventListener('touchstart', (e) => {
                     if (currentMovementMode !== 'tap' || isMenuOpen || isRagdoll || !isRunning || isAvatarEditorOpen) return;
                     const target = e.target;
-                                        if (target.closest('#roblox-menu-btn') || target.closest('#pause-menu') || target.closest('#avatar-editor-menu') || target.closest('#avatar-naming-modal') || target.closest('#jump-button') || target.closest('#mobile-shiftlock') || target.closest('#top-bar-menu') || target.closest('#dropdown-menu') || target.closest('#leaderboard') || target.closest('#inventory') || target.closest('#chat-container') || target.closest('#exploit-overlay') || target.closest('#exploit-sidebar') || target.closest('#exploit-toggle') || target.closest('#iy-container') || target.closest('#iy-toggle')) return;
+                    if (target.closest('#roblox-menu-btn') || target.closest('#pause-menu') || target.closest('#avatar-editor-menu') || target.closest('#avatar-naming-modal') || target.closest('#jump-button') || target.closest('#mobile-shiftlock') || target.closest('#top-bar-menu') || target.closest('#dropdown-menu') || target.closest('#leaderboard') || target.closest('#inventory') || target.closest('#chat-container') || target.closest('#exploit-overlay') || target.closest('#exploit-sidebar') || target.closest('#exploit-toggle') || target.closest('#iy-container') || target.closest('#iy-toggle')) return;
                     const touch = e.changedTouches[0];
                     const mouse = new THREE.Vector2((touch.clientX / window.innerWidth) * 2 - 1, -(touch.clientY / window.innerHeight) * 2 + 1);
                     const raycaster = new THREE.Raycaster();
@@ -1266,7 +1303,7 @@
                 window.addEventListener('mousedown', (e) => {
                     if (currentMovementMode !== 'tap' || isMenuOpen || isRagdoll || !isRunning || isAvatarEditorOpen || e.button !== 0) return;
                     const target = e.target;
-                                        if (target.closest('#roblox-menu-btn') || target.closest('#pause-menu') || target.closest('#avatar-editor-menu') || target.closest('#avatar-naming-modal') || target.closest('#jump-button') || target.closest('#mobile-shiftlock') || target.closest('#top-bar-menu') || target.closest('#dropdown-menu') || target.closest('#leaderboard') || target.closest('#inventory') || target.closest('#chat-container') || target.closest('#exploit-overlay') || target.closest('#exploit-sidebar') || target.closest('#exploit-toggle') || target.closest('#iy-container') || target.closest('#iy-toggle')) return;
+                    if (target.closest('#roblox-menu-btn') || target.closest('#pause-menu') || target.closest('#avatar-editor-menu') || target.closest('#avatar-naming-modal') || target.closest('#jump-button') || target.closest('#mobile-shiftlock') || target.closest('#top-bar-menu') || target.closest('#dropdown-menu') || target.closest('#leaderboard') || target.closest('#inventory') || target.closest('#chat-container') || target.closest('#exploit-overlay') || target.closest('#exploit-sidebar') || target.closest('#exploit-toggle') || target.closest('#iy-container') || target.closest('#iy-toggle')) return;
                     const mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
                     const raycaster = new THREE.Raycaster();
                     raycaster.setFromCamera(mouse, camera);
@@ -2357,7 +2394,7 @@
             }
         }
 
-                function processChatCommand(msg) {
+        function processChatCommand(msg) {
             const lowerMsg = msg.toLowerCase();
             if (lowerMsg.startsWith(';')) {
                 if (window.runIYCommand) window.runIYCommand(msg.substring(1));
@@ -2418,9 +2455,26 @@
             invContainer.className = isPhone ? 'phone' : 'desktop';
             
             const slotCount = isPhone ? 3 : 10;
+            playerInventory.length = slotCount; 
+            
             for (let i = 0; i < slotCount; i++) {
                 const slot = document.createElement('div');
                 slot.className = 'inv-slot';
+                slot.dataset.index = i;
+                
+                // Drop zone logic
+                slot.addEventListener('dragover', (e) => e.preventDefault());
+                slot.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (draggedItemIndex !== null && draggedItemIndex !== i) {
+                        let temp = playerInventory[draggedItemIndex];
+                        playerInventory[draggedItemIndex] = playerInventory[i];
+                        playerInventory[i] = temp;
+                        equippedTool = null; // Unequip on move
+                        renderInventoryItems();
+                    }
+                });
+
                 if (!isPhone) {
                     const num = document.createElement('span');
                     num.className = 'slot-num';
@@ -2429,6 +2483,36 @@
                 }
                 invSlots.appendChild(slot);
             }
+            renderInventoryItems();
+        }
+
+        function renderInventoryItems() {
+            const slots = document.querySelectorAll('#inv-slots .inv-slot');
+            slots.forEach((slot, i) => {
+                const oldItem = slot.querySelector('.inv-item');
+                if (oldItem) oldItem.remove();
+
+                const item = playerInventory[i];
+                if (item) {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'inv-item' + (equippedTool === i ? ' equipped' : '');
+                    itemDiv.innerText = item.name;
+                    itemDiv.draggable = true;
+                    
+                    itemDiv.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        equippedTool = (equippedTool === i) ? null : i;
+                        renderInventoryItems();
+                    });
+
+                    itemDiv.addEventListener('dragstart', () => {
+                        draggedItemIndex = i;
+                        equippedTool = null;
+                    });
+
+                    slot.appendChild(itemDiv);
+                }
+            });
         }
 
         function toggleInventory() {
@@ -2531,6 +2615,18 @@
                 
                 playerPos.set(0, 7.5, 10);
                 playerVel.set(0, 0, 0); 
+                
+                // Clear non-default inventory items on respawn
+                for (let i = 0; i < playerInventory.length; i++) {
+                    if (playerInventory[i] && !playerInventory[i].isDefault) {
+                        playerInventory[i] = null;
+                    }
+                }
+                equippedTool = null;
+                if (document.getElementById('inventory').classList.contains('active')) {
+                    renderInventoryItems();
+                }
+                
                 camYaw = 0; 
                 camPitch = 0;
                 isRagdoll = false;
@@ -3027,7 +3123,7 @@
             });
         }
 
-                function hasWallCollision(pos, dir, objs) {
+        function hasWallCollision(pos, dir, objs) {
             if (window.iyNoclip) return false; // Bypass walls if noclip is on
             const yLevels = [pos.y - 1.5, pos.y - 3.5, pos.y - 5.4]; 
             const xOffset = dir.z * 0.5;
@@ -3096,7 +3192,7 @@
             return null;
         }
 
-                function loop() {
+        function loop() {
             requestAnimationFrame(loop);
             const dt = Math.min(clock.getDelta(), 0.1);
             const now = clock.getElapsedTime();
@@ -3260,7 +3356,7 @@
                     }
 
                     let moveDir = d.clone().applyAxisAngle(new THREE.Vector3(0,1,0), camYaw).normalize();
-                                        let moveDelta = moveDir.clone().multiplyScalar((window.iySpeed || 16) * dt);
+                    let moveDelta = moveDir.clone().multiplyScalar((window.iySpeed || 16) * dt);
 
                     let climbTopY = 0;
                     let isWalking = false;
@@ -3462,7 +3558,7 @@
                             pL_Leg.position.y = 2; pL_Leg.position.z = 0;
                             pR_Leg.position.y = 2; pR_Leg.position.z = 0;
                             charTorso.rotation.y = 0;
-                                                } else if (isWalking) {
+                        } else if (isWalking) {
                             animTimer += dt * 14 * ((window.iySpeed || 16) / 16); const sw = Math.sin(animTimer);
                             pL_Arm.rotation.x = sw * 0.78; pR_Arm.rotation.x = -sw * 0.78;
                             pL_Leg.rotation.x = -sw * 0.78; pR_Leg.rotation.x = sw * 0.78;
@@ -3559,7 +3655,7 @@
                 if (tapMarkerMesh.material.opacity <= 0) tapMarkerMesh.visible = false;
             }
 
-                        // IY Post-Update Hook
+            // IY Post-Update Hook
             if (window.iyPostUpdate) window.iyPostUpdate(dt, now);
 
             if (isAvatarEditorOpen && previewRenderer) {
@@ -3581,7 +3677,8 @@
                 return null;
             }
         }
-                                                                                        // ==========================================================
+        
+        // ==========================================================
         // MOCK EXPLOIT SYSTEM UI
         // ==========================================================
         function initExploitSystem() {
@@ -4042,6 +4139,9 @@ ONLY deltaexploits.gg IS REAL!`;
                         <div>waypoint [name]</div>
                         <div>walktowaypoint [name]</div>
                         <div>pathfindwalktowaypoint [name]</div>
+                        <div>tpposition [x y z]</div>
+                        <div>walltp</div>
+                        <div>tptool</div>
                     </div>
                 </div>
             `;
@@ -4078,6 +4178,9 @@ ONLY deltaexploits.gg IS REAL!`;
             let iyWalkTarget = null;
             let iyIsPathfinding = false;
 
+            // Teleport State Variables
+            let iyWallTP = false;
+
             // Expose state to game loop
             window.iySpeed = 16;
             window.iyNoclip = false;
@@ -4095,20 +4198,18 @@ ONLY deltaexploits.gg IS REAL!`;
             }
 
             function updateWaypointMeshes() {
-                // Remove old meshes
                 iyWaypointMeshes.forEach(m => scene.remove(m));
                 iyWaypointMeshes = [];
                 
                 if (iyShowWaypoints) {
                     const geo = new THREE.BoxGeometry(4, 4, 4);
-                    // depthTest: false allows it to be seen through walls
                     const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5, depthTest: false });
                     
                     Object.keys(iyWaypoints).forEach(name => {
                         const wp = iyWaypoints[name];
                         const mesh = new THREE.Mesh(geo, mat);
                         mesh.position.set(wp.x, wp.y, wp.z);
-                        mesh.renderOrder = 999; // Render on top
+                        mesh.renderOrder = 999;
                         mesh.castShadow = false;
                         mesh.receiveShadow = false;
                         scene.add(mesh);
@@ -4143,6 +4244,7 @@ ONLY deltaexploits.gg IS REAL!`;
                     if (base === 'float' || cmd === 'noplatform') { iyFloat = false; }
                     if (base === 'infjump' || cmd === 'uninfinitejump') { iyInfJump = false; }
                     if (base === 'noclip' || cmd === 'clip') { iyNoclip = false; window.iyNoclip = false; }
+                    if (base === 'walltp') { iyWallTP = false; iyPrint('Wall teleport disabled.'); }
                     return;
                 }
 
@@ -4180,7 +4282,7 @@ ONLY deltaexploits.gg IS REAL!`;
                 // Tweening Commands
                 if (cmd === 'tweenspeed' || cmd === 'tspeed') {
                     tweenSpeed = parseFloat(arg) || 1.0;
-                    if (tweenSpeed <= 0) tweenSpeed = 0.1; // Prevent division by zero
+                    if (tweenSpeed <= 0) tweenSpeed = 0.1;
                     iyPrint(`Tween speed set to ${tweenSpeed}`);
                 }
                 if (cmd === 'tweenoffset' || cmd === 'toffset') {
@@ -4195,7 +4297,7 @@ ONLY deltaexploits.gg IS REAL!`;
                 }
 
                 // Waypoint Commands
-                if (cmd === 'setwaypoint' || cmd === 'setwp') {
+                if (cmd === 'setwaypoint' || cmd === 'setwp' || cmd === 'swp') {
                     const name = parts[1];
                     if (name) {
                         iyWaypoints[name] = playerPos.clone();
@@ -4283,27 +4385,56 @@ ONLY deltaexploits.gg IS REAL!`;
                         iyPrint(`Waypoint '${name || ''}' not found.`);
                     }
                 }
+
+                // Teleport Commands
+                if (cmd === 'tpposition' || cmd === 'tppos') {
+                    const x = parseFloat(parts[1]) || 0;
+                    const y = parseFloat(parts[2]) || 0;
+                    const z = parseFloat(parts[3]) || 0;
+                    playerPos.set(x, y + 5.5, z); // y + 5.5 to put feet on ground
+                    playerVel.set(0,0,0);
+                    iyPrint(`Teleported to ${x}, ${y}, ${z}`);
+                }
+                if (cmd === 'walltp') {
+                    iyWallTP = true;
+                    iyPrint('Wall teleport enabled.');
+                }
+                if (cmd === 'tptool') {
+                    let slot = -1;
+                    for (let i = 0; i < playerInventory.length; i++) {
+                        if (playerInventory[i] === null) {
+                            slot = i;
+                            break;
+                        }
+                    }
+                    if (slot !== -1) {
+                        playerInventory[slot] = { name: "Teleport Tool", type: "tptool", isDefault: false };
+                        iyPrint('Teleport Tool added to inventory.');
+                        if (!document.getElementById('inventory').classList.contains('active')) {
+                            toggleInventory();
+                        }
+                        renderInventoryItems();
+                    } else {
+                        iyPrint('Inventory full!');
+                    }
+                }
             };
 
             window.iyPreUpdate = function(dt, now) {
-                // Prevent movement keys from registering if typing in chat or command bar
                 if (document.activeElement && (document.activeElement.id === 'iy-cmdbar' || document.activeElement.id === 'chat-input')) {
                     moveKeys = { w: false, a: false, s: false, d: false, space: false };
                     flyDown = false;
                 }
 
-                // Lock movement if tweening
                 if (isTweening) {
                     moveKeys = { w: false, a: false, s: false, d: false, space: false };
                     flyDown = false;
                 }
 
-                // Cancel walking if flying or floating
                 if (isFlyMode || iyFloat) {
                     iyWalkTarget = null;
                 }
 
-                // Handle Walking to Waypoint
                 if (iyWalkTarget) {
                     const dx = iyWalkTarget.x - playerPos.x;
                     const dz = iyWalkTarget.z - playerPos.z;
@@ -4314,10 +4445,8 @@ ONLY deltaexploits.gg IS REAL!`;
                         moveKeys = { w: false, a: false, s: false, d: false, space: false };
                     } else {
                         moveKeys = { w: false, a: false, s: false, d: false, space: false };
-                        
                         let worldDir = new THREE.Vector3(dx, 0, dz).normalize();
                         
-                        // Simple obstacle avoidance for pathfinding
                         if (iyIsPathfinding) {
                             if (hasWallCollision(playerPos, worldDir, collisionObjs)) {
                                 const leftDir = new THREE.Vector3(-worldDir.z, 0, worldDir.x);
@@ -4328,7 +4457,6 @@ ONLY deltaexploits.gg IS REAL!`;
                                     if (!hasWallCollision(playerPos, rightDir, collisionObjs)) {
                                         worldDir.copy(rightDir);
                                     } else {
-                                        // Stuck, stop moving
                                         moveKeys = { w: false, a: false, s: false, d: false, space: false };
                                         return;
                                     }
@@ -4336,9 +4464,7 @@ ONLY deltaexploits.gg IS REAL!`;
                             }
                         }
                         
-                        // Convert world direction to local movement keys
                         const localDir = worldDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -camYaw);
-                        
                         if (localDir.z < -0.3) moveKeys.w = true;
                         if (localDir.z > 0.3) moveKeys.s = true;
                         if (localDir.x < -0.3) moveKeys.a = true;
@@ -4358,7 +4484,30 @@ ONLY deltaexploits.gg IS REAL!`;
             };
 
             window.iyPostUpdate = function(dt, now) {
-                // Handle Tweening
+                // Wall TP Logic
+                if (iyWallTP && !isFlyMode) {
+                    let isMovingForward = moveKeys.w || joystickVector.y < -0.1;
+                    if (isMovingForward) {
+                        let moveDir = new THREE.Vector3(Math.sin(camYaw), 0, Math.cos(camYaw));
+                        const rayOrigin = new THREE.Vector3(playerPos.x, playerPos.y - 2.5, playerPos.z);
+                        wallRay.set(rayOrigin, moveDir);
+                        wallRay.far = 2.0;
+                        const hits = wallRay.intersectObjects(collisionObjs);
+                        if (hits.length > 0) {
+                            const hit = hits[0];
+                            if (hit.face) {
+                                const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+                                if (normal.y < WALKABLE_SLOPE_Y) { // It's a wall
+                                    const bb = new THREE.Box3().setFromObject(hit.object);
+                                    const topY = bb.max.y;
+                                    playerPos.y = topY + 5.5;
+                                    playerVel.set(0,0,0);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (isTweening) {
                     let t = (now - tweenStartTime) / tweenSpeed;
                     if (t >= 1.0) {
@@ -4383,46 +4532,40 @@ ONLY deltaexploits.gg IS REAL!`;
                 }
                 
                 if (iyVfly) {
-                    // Override built-in fly camera tilt
                     charGroup.rotation.x = 0; 
                     charGroup.rotation.z = 0;
                     
                     let isMoving = moveKeys.w || moveKeys.a || moveKeys.s || moveKeys.d || moveKeys.space || flyDown;
                     
                     if (isMoving) {
-                        // Calculate target rotation based on movement keys
                         let lookDir = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw)).normalize();
                         let targetRot = Math.atan2(lookDir.x, lookDir.z);
                         if (moveKeys.a) targetRot -= Math.PI/2;
                         if (moveKeys.d) targetRot += Math.PI/2;
                         if (moveKeys.s) targetRot += Math.PI;
                         
-                        // Smoothly rotate horizontally
                         let angleDiff = targetRot - charGroup.rotation.y;
                         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
                         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
                         charGroup.rotation.y += angleDiff * 0.15;
                         
-                        // Check distance to ground for walk animation
                         const rayOrigin = new THREE.Vector3(playerPos.x, playerPos.y - 2, playerPos.z);
                         floorRay.set(rayOrigin, new THREE.Vector3(0, -1, 0));
                         const hits = floorRay.intersectObjects(collisionObjs);
                         let isNearGround = hits.length > 0 && hits[0].distance < 3.0;
                         
                         if (isNearGround) {
-                            iyAnimTimer += dt * 14 * (iySpeed/16) * 2; // speed up anim
+                            iyAnimTimer += dt * 14 * (iySpeed/16) * 2;
                             const sw = Math.sin(iyAnimTimer);
                             pL_Arm.rotation.x = sw * 0.78; pR_Arm.rotation.x = -sw * 0.78;
                             pL_Leg.rotation.x = -sw * 0.78; pR_Leg.rotation.x = sw * 0.78;
                         } else {
-                            // Fall animation
                             pL_Arm.rotation.x += (-Math.PI * 0.75 - pL_Arm.rotation.x) * 0.2; 
                             pR_Arm.rotation.x += (-Math.PI * 0.75 - pR_Arm.rotation.x) * 0.2;
                             pL_Leg.rotation.x += (0.087 - pL_Leg.rotation.x) * 0.2; 
                             pR_Leg.rotation.x += (0.087 - pR_Leg.rotation.x) * 0.2;
                         }
                     } else {
-                        // Idle animation
                         pL_Arm.rotation.x *= 0.85; 
                         pR_Arm.rotation.x *= 0.85; 
                         pL_Leg.rotation.x *= 0.85; 
@@ -4431,7 +4574,6 @@ ONLY deltaexploits.gg IS REAL!`;
                 }
             };
 
-            // IY Keybinds
             document.addEventListener('keydown', (e) => {
                 if (e.key === ';' && document.activeElement.id !== 'iy-cmdbar' && document.activeElement.id !== 'chat-input') {
                     e.preventDefault();
@@ -4451,7 +4593,7 @@ ONLY deltaexploits.gg IS REAL!`;
 
             const cmdbar = document.getElementById('iy-cmdbar');
             cmdbar.addEventListener('keydown', (e) => {
-                e.stopPropagation(); // Prevent game keys
+                e.stopPropagation();
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     if (cmdbar.value) {
@@ -4478,7 +4620,6 @@ ONLY deltaexploits.gg IS REAL!`;
                 cmdbar.focus();
             });
 
-            // IY Execute Button
             document.getElementById('iy-exec-btn').addEventListener('click', () => {
                 const img = document.getElementById('iy-img');
                 const iyToggleBtn = document.getElementById('iy-toggle');
@@ -4487,18 +4628,17 @@ ONLY deltaexploits.gg IS REAL!`;
                 iyToggleBtn.classList.add('active');
                 img.style.display = 'block';
                 img.style.opacity = '1';
-                iyContainer.classList.remove('hidden'); // Fully visible
+                iyContainer.classList.remove('hidden');
                 
                 setTimeout(() => {
                     img.style.opacity = '0';
                     setTimeout(() => {
                         img.style.display = 'none';
-                        iyContainer.classList.add('hidden'); // Move down to hide body
+                        iyContainer.classList.add('hidden');
                     }, 1500);
                 }, 1000);
             });
 
-            // IY Toggle Draggable
             let iyDrag = false, iyMouseD = false, iySX, iySY, iySL, iyST;
             const startIYDrag = (cx, cy) => {
                 iyMouseD = true; iyDrag = false; iySX = cx; iySY = cy;
